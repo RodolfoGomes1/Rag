@@ -4,3 +4,4 @@ google-genai==2.23.0
 langchain-community==0.4.2
 langchain-text-splitters==1.1.2
 pypdf==6.19.0
+gunicorn==21.2.0
