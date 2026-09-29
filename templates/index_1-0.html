@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG - Consulta aos Manuais Técnicos</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 py-4 shadow-md">
+        <div class="max-w-4xl mx-auto px-4 flex items-center justify-between">
+            <h1 class="text-xl font-bold text-blue-400 flex items-center gap-2">
+                ⚙️ RAG - Manuais de Automação
+            </h1>
+            <span class="text-xs bg-blue-900 text-blue-200 px-2.5 py-1 rounded-full font-medium">Modo Online</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl w-full mx-auto px-4 py-8 flex-grow flex flex-col gap-6">
+        
+        <!-- Caixa de Pergunta -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg">
+            <label for="pergunta" class="block text-sm font-semibold text-slate-300 mb-2">Faça sua pergunta técnica:</label>
+            <div class="flex gap-3">
+                <input type="text" id="pergunta" placeholder="Ex: Qual a tensão de alimentação do drive NDC?" 
+                    class="flex-grow bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 focus:outline-none focus:border-blue-500 transition-colors">
+                <button onclick="enviarPergunta()" id="btn-enviar"
+                    class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center justify-center min-w-[120px]">
+                    Perguntar
+                </button>
+            </div>
+        </div>
+
+        <!-- Área de Resposta -->
+        <div id="card-resposta" class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-lg hidden">
+            <h2 class="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">Resposta do Assistente</h2>
+            
+            <!-- Loading Indicator -->
+            <div id="loading" class="flex items-center gap-3 py-4 text-slate-400 hidden">
+                <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Consultando manuais e gerando resposta...</span>
+            </div>
+
+            <!-- Texto da Resposta -->
+            <div id="resposta-texto" class="text-slate-200 leading-relaxed whitespace-pre-wrap"></div>
+
+            <!-- Fontes Utilizadas -->
+            <div id="container-fontes" class="mt-6 pt-4 border-t border-slate-700 hidden">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2">Manuais Consultados:</span>
+                <ul id="lista-fontes" class="text-xs text-blue-300 space-y-1"></ul>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-xs text-slate-500 border-t border-slate-800">
+        Desenvolvido com Python, ChromaDB, Sentence-Transformers e Google GenAI.
+    </footer>
+
+    <!-- Script de Integração -->
+    <script>
+        const inputPergunta = document.getElementById('pergunta');
+        const btnEnviar = document.getElementById('btn-enviar');
+        const cardResposta = document.getElementById('card-resposta');
+        const loading = document.getElementById('loading');
+        const respostaTexto = document.getElementById('resposta-texto');
+        const containerFontes = document.getElementById('container-fontes');
+        const listaFontes = document.getElementById('lista-fontes');
+
+        // Permitir envio com a tecla Enter
+        inputPergunta.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                enviarPergunta();
+            }
+        });
+
+        async function enviarPergunta() {
+            const pergunta = inputPergunta.value.trim();
+            if (!pergunta) return;
+
+            // UI - Estado de Carregamento
+            btnEnviar.disabled = true;
+            btnEnviar.classList.add('opacity-50', 'cursor-not-allowed');
+            cardResposta.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            respostaTexto.innerHTML = '';
+            containerFontes.classList.add('hidden');
+            listaFontes.innerHTML = '';
+
+            try {
+                const response = await fetch('/perguntar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pergunta })
+                });
+
+                const data = await response.json();
+
+                loading.classList.add('hidden');
+                respostaTexto.innerHTML = data.resposta;
+
+                // Exibe as fontes se existirem
+                if (data.fontes && data.fontes.length > 0) {
+                    containerFontes.classList.remove('hidden');
+                    data.fontes.forEach(fonte => {
+                        const li = document.createElement('li');
+                        li.textContent = `• ${fonte}`;
+                        listaFontes.appendChild(li);
+                    });
+                }
+
+            } catch (error) {
+                loading.classList.add('hidden');
+                respostaTexto.innerHTML = "Erro de conexão com o servidor local.";
+            } finally {
+                btnEnviar.disabled = false;
+                btnEnviar.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+    </script>
+</body>
+</html>
