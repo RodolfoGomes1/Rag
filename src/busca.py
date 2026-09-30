@@ -38,6 +38,9 @@ def obter_cliente_chroma():
 def obter_modelo_embedding():
     global _modelo_embedding
     if _modelo_embedding is None:
+        import torch
+        # Força o uso de uma única thread para poupar RAM
+        torch.set_num_threads(1)
         from sentence_transformers import SentenceTransformer
         _modelo_embedding = SentenceTransformer(MODELO_EMBEDDING, device="cpu")
     return _modelo_embedding
