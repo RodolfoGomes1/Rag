@@ -7,10 +7,6 @@ import gc
 
 torch.set_grad_enabled(False)
 
-# import chromadb
-# from sentence_transformers import SentenceTransformer
-
-
 # ============================================================
 # CONFIGURAÇÕES
 # ============================================================
@@ -342,6 +338,7 @@ def calcular_score_lexical(texto, termos):
 
     return score
 
+
 # ============================================================
 # SCORE DE CONTEXTO
 # ============================================================
@@ -570,65 +567,25 @@ def calcular_score_resposta_direta(texto, intencao):
 
 
 # ============================================================
-# BUSCA
+# BUSCA (Sem prints para uso web otimizado)
 # ============================================================
 
 def buscar(pergunta):
 
-    print()
-    print("=" * 70)
-    print("PERGUNTA")
-    print("=" * 70)
-    print(pergunta)
-
-    # --------------------------------------------------------
-    # CONTEXTO
-    # --------------------------------------------------------
-
     familia, modelo = identificar_contexto(pergunta)
-
-    print()
-    print("CONTEXTO")
-    print("-" * 70)
-    print(f"Familia : {familia}")
-    print(f"Modelo  : {modelo}")
-
-    # --------------------------------------------------------
-    # INTENÇÃO
-    # --------------------------------------------------------
-
     intencao = identificar_intencao(pergunta)
-
-    print()
-    print("INTENÇÃO")
-    print("-" * 70)
-    print(intencao)
-
-    # --------------------------------------------------------
-    # TERMOS
-    # --------------------------------------------------------
-
     termos = extrair_termos(pergunta)
 
     # --------------------------------------------------------
     # CHROMA (Usando função global otimizada)
     # --------------------------------------------------------
-
     cliente = obter_cliente_chroma()
-
-    colecao = cliente.get_collection(
-        name=COLECAO
-    )
+    colecao = cliente.get_collection(name=COLECAO)
 
     # --------------------------------------------------------
     # MODELO DE EMBEDDING (Usando cache global otimizado)
     # --------------------------------------------------------
-
     modelo_embedding = obter_modelo_embedding()
-
-    # --------------------------------------------------------
-    # EMBEDDING
-    # --------------------------------------------------------
 
     embedding = modelo_embedding.encode(
         pergunta,
@@ -638,13 +595,9 @@ def buscar(pergunta):
     # --------------------------------------------------------
     # BUSCA SEMÂNTICA
     # --------------------------------------------------------
-
     resultados_semanticos = colecao.query(
-
         query_embeddings=[embedding],
-
         n_results=TOP_SEMANTICO,
-
         include=[
             "documents",
             "metadatas",
@@ -660,28 +613,20 @@ def buscar(pergunta):
     ids = resultados_semanticos["ids"][0]
 
     for i in range(len(documentos)):
-
         candidatos[ids[i]] = {
-
             "texto": documentos[i],
-
             "metadata": metadatas[i],
-
             "distancia": distances[i],
-
             "origem_semantica": True
         }
 
     # --------------------------------------------------------
     # BUSCA LEXICAL
     # --------------------------------------------------------
-
     total = colecao.count()
 
     if total > 0:
-
         todos = colecao.get(
-
             include=[
                 "documents",
                 "metadatas"
@@ -689,9 +634,7 @@ def buscar(pergunta):
         )
 
         for i in range(len(todos["documents"])):
-
             texto = todos["documents"][i]
-
             metadata = todos["metadatas"][i]
 
             score_lexical = calcular_score_lexical(
@@ -700,122 +643,58 @@ def buscar(pergunta):
             )
 
             if score_lexical > 0:
-
                 id_doc = todos["ids"][i]
 
                 if id_doc not in candidatos:
-
                     candidatos[id_doc] = {
-
                         "texto": texto,
-
                         "metadata": metadata,
-
                         "distancia": None,
-
                         "origem_semantica": False
                     }
 
     # --------------------------------------------------------
     # RANKING
     # --------------------------------------------------------
-
     resultados = []
 
     for id_doc, item in candidatos.items():
-
         texto = item["texto"]
-
         metadata = item["metadata"]
-
         distancia = item["distancia"]
 
-        # --------------------------------------------
-        # SCORES
-        # --------------------------------------------
-
-        score_semantico = calcular_score_semantico(
-            distancia
-        )
-
-        score_lexical = calcular_score_lexical(
-            texto,
-            termos
-        )
-
-        score_contexto = calcular_score_contexto(
-            metadata,
-            familia,
-            modelo
-        )
-
-        score_intencao = calcular_score_intencao(
-            texto,
-            intencao
-        )
-
-        penalidade_familia = calcular_penalidade_familia(
-            metadata,
-            familia
-        )
-
-        score_resposta = calcular_score_resposta_direta(
-            texto,
-            intencao
-        )
-
-        # --------------------------------------------
-        # SCORE FINAL
-        # --------------------------------------------
+        score_semantico = calcular_score_semantico(distancia)
+        score_lexical = calcular_score_lexical(texto, termos)
+        score_contexto = calcular_score_contexto(metadata, familia, modelo)
+        score_intencao = calcular_score_intencao(texto, intencao)
+        penalidade_familia = calcular_penalidade_familia(metadata, familia)
+        score_resposta = calcular_score_resposta_direta(texto, intencao)
 
         score = (
-
             score_semantico * 0.35
-
             + score_lexical * 0.40
-
             + score_resposta * 0.80
-
             + score_contexto
-
             + score_intencao
-
             + penalidade_familia
         )
 
         resultados.append({
-
             "id": id_doc,
-
             "score": score,
-
             "semantico": score_semantico,
-
             "lexical": score_lexical,
-
             "resposta": score_resposta,
-
             "contexto": score_contexto,
-
             "intencao": score_intencao,
-
             "penalidade_familia": penalidade_familia,
-
             "texto": texto,
-
             "metadata": metadata,
-
             "distancia": distancia
         })
 
-    # --------------------------------------------------------
-    # ORDENAÇÃO
-    # --------------------------------------------------------
-
     resultados.sort(
-
         key=lambda x: x["score"],
-
         reverse=True
     )
 
@@ -823,129 +702,23 @@ def buscar(pergunta):
 
     gc.collect()
 
-    # --------------------------------------------------------
-    # EXIBIÇÃO
-    # --------------------------------------------------------
-
-    print()
-    print("=" * 70)
-    print("RESULTADOS")
-    print("=" * 70)
-
-    for i, resultado in enumerate(
-        resultados,
-        start=1
-    ):
-
-        metadata = resultado["metadata"]
-
-        print()
-
-        print(
-            f"[{i}] SCORE: "
-            f"{resultado['score']:.2f}"
-        )
-
-        print(
-            f"    Semântico : "
-            f"{resultado['semantico']:.2f}"
-        )
-
-        print(
-            f"    Lexical   : "
-            f"{resultado['lexical']:.2f}"
-        )
-
-        print(
-            f"    Resposta  : "
-            f"{resultado['resposta']:.2f}"
-        )
-
-        print(
-            f"    Contexto  : "
-            f"{resultado['contexto']:.2f}"
-        )
-
-        print(
-            f"    Intenção  : "
-            f"{resultado['intencao']:.2f}"
-        )
-
-        print(
-            f"    Fam.      : "
-            f"{resultado['penalidade_familia']:.2f}"
-        )
-
-        if resultado["distancia"] is not None:
-
-            print(
-                f"    Distância : "
-                f"{resultado['distancia']:.4f}"
-            )
-
-        print(
-            "    Termos    : "
-            + ", ".join(termos)
-        )
-
-        print(
-            f"    Arquivo   : "
-            f"{metadata.get('arquivo', 'N/A')}"
-        )
-
-        print(
-            f"    Família   : "
-            f"{metadata.get('familia', 'N/A')}"
-        )
-
-        print(
-            f"    Modelo    : "
-            f"{metadata.get('modelo', 'N/A')}"
-        )
-
-        print(
-            f"    Página    : "
-            f"{metadata.get('pagina', 'N/A')}"
-        )
-
-        print()
-
-        print("    TEXTO:")
-        print("    " + "-" * 62)
-
-        texto = resultado["texto"]
-
-        if len(texto) > 2500:
-
-            texto = texto[:2500] + "..."
-
-        print(
-            "    " +
-            texto.replace(
-                "\n",
-                "\n    "
-            )
-        )
-
     return resultados
 
 
 # ============================================================
-# PROGRAMA PRINCIPAL
+# PROGRAMA PRINCIPAL (Para testes locais)
 # ============================================================
 
 if __name__ == "__main__":
 
     print()
-
     print("=" * 70)
-    print("RAG - BUSCA NOS MANUAIS")
+    print("RAG - BUSCA NOS MANUAIS (Modo Terminal)")
     print("=" * 70)
 
     while True:
 
         print()
-
         pergunta = input(
             "Digite sua pergunta (ou ENTER para sair): "
         ).strip()
@@ -954,19 +727,13 @@ if __name__ == "__main__":
             break
 
         try:
-
-            buscar(pergunta)
+            res = buscar(pergunta)
+            print(f"\nBusca concluída. {len(res)} resultados encontrados.")
+            for idx, r in enumerate(res, 1):
+                print(f"[{idx}] Score: {r['score']:.2f} | Arquivo: {r['metadata'].get('arquivo', 'N/A')}")
 
         except Exception as e:
-
-            print()
-
-            print("=" * 70)
-            print("ERRO")
-            print("=" * 70)
-
+            print("\nERRO:")
             print(e)
 
-    print()
-
-    print("RAG encerrado.")
+    print("\nRAG encerrado.")
