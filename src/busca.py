@@ -22,6 +22,26 @@ TOP_FINAL = 10
 
 
 # ============================================================
+# INSTÂNCIAS GLOBAIS LAZY (Otimizado para poupar RAM no Render)
+# ============================================================
+
+_cliente_chroma = None
+_modelo_embedding = None
+
+def obter_cliente_chroma():
+    global _cliente_chroma
+    if _cliente_chroma is None:
+        _cliente_chroma = chromadb.PersistentClient(path=str(PASTA_BANCO))
+    return _cliente_chroma
+
+def obter_modelo_embedding():
+    global _modelo_embedding
+    if _modelo_embedding is None:
+        _modelo_embedding = SentenceTransformer(MODELO_EMBEDDING, device="cpu")
+    return _modelo_embedding
+
+
+# ============================================================
 # NORMALIZAÇÃO
 # ============================================================
 
@@ -410,24 +430,6 @@ def calcular_score_semantico(distancia):
     """
     Converte a distância L2 retornada pelo Chroma
     em uma pontuação semântica de 0 a 100.
-
-    A coleção Chroma está configurada com:
-
-        hnsw:
-            space: l2
-
-    Portanto:
-
-        distância menor = maior similaridade
-        distância maior  = menor similaridade
-
-    Exemplos:
-
-        0.00 -> 100.00
-        0.10 ->  90.91
-        0.50 ->  66.67
-        1.00 ->  50.00
-        2.00 ->  33.33
     """
 
     if distancia is None:
@@ -599,24 +601,20 @@ def buscar(pergunta):
     termos = extrair_termos(pergunta)
 
     # --------------------------------------------------------
-    # CHROMA
+    # CHROMA (Usando função global otimizada)
     # --------------------------------------------------------
 
-    cliente = chromadb.PersistentClient(
-        path=str(PASTA_BANCO)
-    )
+    cliente = obter_cliente_chroma()
 
     colecao = cliente.get_collection(
         name=COLECAO
     )
 
     # --------------------------------------------------------
-    # MODELO DE EMBEDDING
+    # MODELO DE EMBEDDING (Usando cache global otimizado)
     # --------------------------------------------------------
 
-    modelo_embedding = SentenceTransformer(
-        MODELO_EMBEDDING
-    )
+    modelo_embedding = obter_modelo_embedding()
 
     # --------------------------------------------------------
     # EMBEDDING
@@ -905,7 +903,6 @@ def buscar(pergunta):
 
         texto = resultado["texto"]
 
-        # Limita somente a exibição
         if len(texto) > 2500:
 
             texto = texto[:2500] + "..."
@@ -961,3 +958,4 @@ if __name__ == "__main__":
     print()
 
     print("RAG encerrado.")
+    
