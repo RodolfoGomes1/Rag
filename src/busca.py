@@ -2,6 +2,11 @@ import re
 import unicodedata
 from pathlib import Path
 
+import torch
+import gc
+
+torch.set_grad_enabled(False)
+
 # import chromadb
 # from sentence_transformers import SentenceTransformer
 
@@ -815,6 +820,8 @@ def buscar(pergunta):
     )
 
     resultados = resultados[:TOP_FINAL]
+
+    gc.collect()
 
     # --------------------------------------------------------
     # EXIBIÇÃO
