@@ -2,8 +2,8 @@ import re
 import unicodedata
 from pathlib import Path
 
-import chromadb
-from sentence_transformers import SentenceTransformer
+# import chromadb
+# from sentence_transformers import SentenceTransformer
 
 
 # ============================================================
@@ -31,12 +31,14 @@ _modelo_embedding = None
 def obter_cliente_chroma():
     global _cliente_chroma
     if _cliente_chroma is None:
+        import chromadb
         _cliente_chroma = chromadb.PersistentClient(path=str(PASTA_BANCO))
     return _cliente_chroma
 
 def obter_modelo_embedding():
     global _modelo_embedding
     if _modelo_embedding is None:
+        from sentence_transformers import SentenceTransformer
         _modelo_embedding = SentenceTransformer(MODELO_EMBEDDING, device="cpu")
     return _modelo_embedding
 
@@ -958,4 +960,3 @@ if __name__ == "__main__":
     print()
 
     print("RAG encerrado.")
-    
